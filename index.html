@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <title>Медик Тест</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    body { font-family: sans-serif; padding: 1em; }
+    .question-card { border: 1px solid #ccc; padding: 1em; border-radius: 8px; margin-bottom: 1em; }
+    button { margin-top: 1em; padding: 0.5em 1em; }
+  </style>
+</head>
+<body>
+  <h1>Медик Тест</h1>
+  <select id="test-selector"></select>
+  <div id="test-container"></div>
+  <script>
+    async function fetchTestList() {
+      const response = await fetch('/tests');
+      return await response.json();
+    }
+
+    async function fetchTestFile(filename) {
+      const response = await fetch(`/tests/${filename}`);
+      return await response.text();
+    }
+
+    function parseTest(content) {
+      const lines = content.split('\n');
+      const questions = [];
+      let currentQuestion = null;
+
+      for (const line of lines) {
+        if (line.startsWith('<question>')) {
+          if (currentQuestion) questions.push(currentQuestion);
+          currentQuestion = { q: line.replace('<question>', '').trim(), variants: [], answer: null };
+        } else if (line.startsWith('<variant>')) {
+          const text = line.replace('<variant>', '').trim();
+          if (currentQuestion) {
+            if (currentQuestion.answer === null) currentQuestion.answer = text;
+            currentQuestion.variants.push(text);
+          }
+        }
+      }
+      if (currentQuestion) questions.push(currentQuestion);
+      return questions;
+    }
+
+    function shuffle(array) {
+      for (let i = array.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [array[i], array[j]] = [array[j], array[i]];
+      }
+      return array;
+    }
+
+    function displayTest(questions) {
+      const container = document.getElementById('test-container');
+      container.innerHTML = '';
+
+      questions.forEach((q, index) => {
+        const div = document.createElement('div');
+        div.className = 'question-card';
+        div.innerHTML = `<strong>${index + 1}. ${q.q}</strong><br>`;
+
+        const shuffled = shuffle([...q.variants]);
+        shuffled.forEach(v => {
+          const id = `q${index}_${v}`;
+          div.innerHTML += `
+            <div>
+              <input type="radio" name="q${index}" id="${id}" value="${v}">
+              <label for="${id}">${v}</label>
+            </div>
+          `;
+        });
+        container.appendChild(div);
+      });
+
+      const btn = document.createElement('button');
+      btn.textContent = 'Проверить';
+      btn.onclick = () => checkAnswers(questions);
+      container.appendChild(btn);
+    }
+
+    function checkAnswers(questions) {
+      let score = 0;
+      questions.forEach((q, i) => {
+        const checked = document.querySelector(`input[name=q${i}]:checked`);
+        if (checked && checked.value === q.answer) score++;
+      });
+      alert(`Правильных ответов: ${score} из ${questions.length}`);
+    }
+
+    async function init() {
+      const selector = document.getElementById('test-selector');
+      const testList = await fetchTestList();
+      testList.forEach(filename => {
+        const option = document.createElement('option');
+        option.value = filename;
+        option.textContent = filename;
+        selector.appendChild(option);
+      });
+
+      selector.onchange = async () => {
+        const content = await fetchTestFile(selector.value);
+        const questions = parseTest(content);
+        displayTest(questions);
+      };
+    }
+
+    init();
+  </script>
+</body>
+</html>
