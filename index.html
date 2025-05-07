@@ -16,12 +16,12 @@
   <div id="test-container"></div>
   <script>
     async function fetchTestList() {
-      const response = await fetch('/tests');
+      const response = await fetch('/test');
       return await response.json();
     }
 
     async function fetchTestFile(filename) {
-      const response = await fetch(`/tests/${filename}`);
+      const response = await fetch(`/test/${filename}`);
       return await response.text();
     }
 
